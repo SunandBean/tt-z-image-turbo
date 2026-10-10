@@ -1,0 +1,64 @@
+schema: "5.1"
+repo: sunandbean/z-image-turbo-p100a
+name: z-image-turbo-p100a
+weights:
+  repo: Tongyi-MAI/Z-Image-Turbo
+  revision: f332072aa78be7aecdf3ee76d5c247082da564a6
+kind: tt-dit-server
+arch: blackhole
+
+image:
+  registry: hf
+
+source:
+  tt_metal: {repo: https://github.com/tenstorrent/tt-metal, ref: v0.80.0-dev20260921}
+  code:
+    # Every port in this family reaches tt-metal for `models.tt_dit.utils.matmul.get_matmul_config`.
+    # The module guards that import and falls back to None, so an under-listed allowlist builds and
+    # loads cleanly and only fails on the first matmul -- list it rather than discover that at serve.
+    - models/common
+    - models/tt_dit
+  extra_code:
+    - root: {repo: https://github.com/SunandBean/tt-z-image-turbo, ref: v0.1.1}
+      paths: [tt_z_image_turbo]
+  ubuntu: "22.04"
+  python: "3.12"
+
+runtime:
+  app: tt_z_image_turbo.server:app
+  mesh_shape_env: Z_IMAGE_MESH_SHAPE
+  packages:
+    - diffusers
+    - transformers
+    - safetensors
+    - huggingface_hub
+    - numpy
+    - loguru
+    - typing_extensions
+
+serve:
+  port: 8000
+  hardware: p100a
+  mesh_device: P100
+  env:
+    ARCH_NAME: blackhole
+    TT_METAL_OPERATION_TIMEOUT_SECONDS: "300.0"
+
+verify:
+  - "import tt_z_image_turbo.server as s; assert s.app"
+
+card:
+  description: >
+    Z-Image-Turbo, the 6B rectified-flow text-to-image model, ported to one Tenstorrent
+    Blackhole p100a. The DiT, the Qwen3 text encoder and the VAE decoder all run on the
+    card; sampling and image encoding stay on the CPU. Weights are Apache-2.0 from
+    Tongyi-MAI/Z-Image-Turbo and are never redistributed here.
+  quickstart: |
+    ### Request shape
+
+    `POST /predict` takes `{"prompt": str, "width": int, "height": int, "seed": int}` and
+    returns `{"image": base64 PNG, "width", "height", "model", "weights_revision",
+    "license", "seed", "num_steps", "timing_ms"}`. Dimensions must be multiples of 8
+    between 512 and 1920 and at most 1920x1088 pixels; anything else is a 422 and never
+    touches the card. The turbo schedule fixes the step count at 9 (8 DiT forwards).
+    `GET /health` reports load state and DRAM use.
