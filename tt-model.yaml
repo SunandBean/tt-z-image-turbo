@@ -19,7 +19,7 @@ source:
     - models/common
     - models/tt_dit
   extra_code:
-    - root: {repo: https://github.com/SunandBean/tt-z-image-turbo, ref: v0.1.1}
+    - root: {repo: https://github.com/SunandBean/tt-z-image-turbo, ref: v0.1.2}
       paths: [tt_z_image_turbo]
   ubuntu: "22.04"
   python: "3.12"
